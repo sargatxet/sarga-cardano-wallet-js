@@ -11,11 +11,11 @@ dotenv.config();
 
 describe('Cardano wallet network', function() {
 	let walletServer: WalletServer;
-	let syncProgress = ['syncing', 'ready'];
-	let nodeEras = [ApiNetworkInformationNodeEraEnum.Allegra, ApiNetworkInformationNodeEraEnum.Byron, ApiNetworkInformationNodeEraEnum.Mary, ApiNetworkInformationNodeEraEnum.Shelley, ApiNetworkInformationNodeEraEnum.Alonzo];
-	let clockStatus = [ApiNetworkClockStatusEnum.Available, ApiNetworkClockStatusEnum.Unavailable, ApiNetworkClockStatusEnum.Pending];
+	const syncProgress = ['syncing', 'ready'];
+	const nodeEras = [ApiNetworkInformationNodeEraEnum.Allegra, ApiNetworkInformationNodeEraEnum.Byron, ApiNetworkInformationNodeEraEnum.Mary, ApiNetworkInformationNodeEraEnum.Shelley, ApiNetworkInformationNodeEraEnum.Alonzo];
+	const clockStatus = [ApiNetworkClockStatusEnum.Available, ApiNetworkClockStatusEnum.Unavailable, ApiNetworkClockStatusEnum.Pending];
 
-	let serverSettings = {
+	const serverSettings = {
     "pool_metadata_source": "direct"
 	};
 
@@ -24,8 +24,8 @@ describe('Cardano wallet network', function() {
 	});
 
 	it("should get network information", async function() {
-		let information = await walletServer.getNetworkInformation();
-		
+		const information = await walletServer.getNetworkInformation();
+
 		expect(information).have.property('network_tip').with.property('time').be.a('string');
 		expect(information).have.property('network_tip').with.property('epoch_number').be.a('number');
 		expect(information).have.property('network_tip').with.property('absolute_slot_number').be.a('number');
@@ -50,21 +50,21 @@ describe('Cardano wallet network', function() {
 	});
 
 	it('should get network clock', async function() {
-		let clock = await walletServer.getNetworkClock();
+		const clock = await walletServer.getNetworkClock();
 
 		expect(clockStatus).include(clock.status);
 		expect(clock).have.property('offset').with.property('quantity').be.a('number');
 		expect(clock).have.property('offset').with.property('unit').equal('microsecond');
 	});
 
-	
+
 	it('should get network parameters', async function() {
-			let slotLengthUnits = [ApiNetworkParametersSlotLengthUnitEnum.Second];
-			let coefficientUnits = [ApiNetworkParametersActiveSlotCoefficientUnitEnum.Percent];
-			let epochLengthUnits = [ApiNetworkParametersEpochLengthUnitEnum.Slot];
-			let heightUnits = [WalletsTipHeightUnitEnum.Block];
-			let amountUnits = [WalletswalletIdpaymentfeesAmountUnitEnum.Lovelace];
-			let parameters = await walletServer.getNetworkParameters();
+			const slotLengthUnits = [ApiNetworkParametersSlotLengthUnitEnum.Second];
+			const coefficientUnits = [ApiNetworkParametersActiveSlotCoefficientUnitEnum.Percent];
+			const epochLengthUnits = [ApiNetworkParametersEpochLengthUnitEnum.Slot];
+			const heightUnits = [WalletsTipHeightUnitEnum.Block];
+			const amountUnits = [WalletswalletIdpaymentfeesAmountUnitEnum.Lovelace];
+			const parameters = await walletServer.getNetworkParameters();
 
 			expect(parameters).have.property('slot_length').with.property('quantity').be.a('number');
 			expect(slotLengthUnits).include(parameters.slot_length.unit);
@@ -79,10 +79,10 @@ describe('Cardano wallet network', function() {
 			expect(parameters).have.property('epoch_length').with.property('quantity').be.a('number');
 			expect(epochLengthUnits).include(parameters.epoch_length.unit);
 
-			let shelley = parameters.eras.shelley;
-			let mary = parameters.eras.mary;
-			let byron = parameters.eras.byron;
-			let allegra = parameters.eras.allegra;
+			const shelley = parameters.eras.shelley;
+			const mary = parameters.eras.mary;
+			const byron = parameters.eras.byron;
+			const allegra = parameters.eras.allegra;
 			expect(mary).have.property('epoch_start_time').be.a('string');
 			expect(mary).have.property('epoch_number').be.a('number');
 			expect(shelley).have.property('epoch_start_time').be.a('string');
@@ -103,12 +103,12 @@ describe('Cardano wallet network', function() {
 	});
 
 	it("should update metadata source", async function(){
-		let poolMetadataSource = "direct";
+		const poolMetadataSource = "direct";
 		await walletServer.updateMetadataSource(poolMetadataSource);
 	});
 
 	it("should get metadata source", async function(){
-		let metadataSource = await walletServer.getMetadataSource();
+		const metadataSource = await walletServer.getMetadataSource();
 		expect(serverSettings.pool_metadata_source).equal(metadataSource);
 	});
 

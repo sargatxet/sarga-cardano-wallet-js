@@ -8,19 +8,9 @@
     "outDir": "dist",
     "rootDir": ".",
     "sourceMap": true,
-		"experimentalDecorators": true,
-    "lib": [
-      "es6",
-      "dom",
-			"es2019"
-    ],
-    "typeRoots": [
-      "node_modules/@types"
-    ]
+    "experimentalDecorators": true,
+    "lib": ["es6", "dom", "es2019"],
+    "typeRoots": ["node_modules/@types"]
   },
-  "exclude": [
-    "test",
-    "dist",
-    "node_modules"
-  ]
+  "exclude": ["test", "dist", "node_modules"]
 }

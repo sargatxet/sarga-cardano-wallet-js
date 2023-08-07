@@ -1,5 +1,5 @@
-import { CoinSelectionWallet } from "./wallet/coin-selection-wallet";
-import { generateMnemonic, mnemonicToEntropy } from "bip39";
+import { CoinSelectionWallet } from './wallet/coin-selection-wallet'
+import { generateMnemonic, mnemonicToEntropy } from 'bip39'
 import {
   Address,
   AssetName,
@@ -52,85 +52,82 @@ import {
   TransactionOutputs,
   TransactionWitnessSet,
   Value,
-  Vkeywitnesses,
-} from "@emurgo/cardano-serialization-lib-nodejs";
-import { Mainnet, Testnet } from "./config/network.config";
-import { TokenWallet } from "./wallet/token-wallet";
-import { ApiCoinSelectionChange, WalletsAssetsAvailable } from "./models";
-import { AssetWallet } from "./wallet/asset-wallet";
-import { Script } from "./models/script.model";
+  Vkeywitnesses
+} from '@emurgo/cardano-serialization-lib-nodejs'
+import { Mainnet, Testnet } from './config/network.config'
+import { TokenWallet } from './wallet/token-wallet'
+import { ApiCoinSelectionChange, WalletsAssetsAvailable } from './models'
+import { AssetWallet } from './wallet/asset-wallet'
+import { Script } from './models/script.model'
 import {
   JsonScript,
   ScriptTypeEnum,
-  scriptTypes,
-} from "./models/json-script.model";
-import { ExtendedSigningKey } from "./models/payment-extended-signing-key";
-import { MultisigTransaction } from "./models/multisig-transaction";
+  scriptTypes
+} from './models/json-script.model'
+import { ExtendedSigningKey } from './models/payment-extended-signing-key'
+import { MultisigTransaction } from './models/multisig-transaction'
 
 const phrasesLengthMap: { [key: number]: number } = {
   12: 128,
   15: 160,
   18: 192,
   21: 224,
-  24: 256,
-};
+  24: 256
+}
 export class Seed {
-  static generateRecoveryPhrase(size: number = 15): string {
-    let strength = phrasesLengthMap[size] || phrasesLengthMap[15];
-    return generateMnemonic(strength).trim();
+  static generateRecoveryPhrase(size = 15): string {
+    const strength = phrasesLengthMap[size] || phrasesLengthMap[15]
+    return generateMnemonic(strength).trim()
   }
 
   static toMnemonicList(phrase: string): Array<string> {
-    return phrase.trim().split(/\s+/g);
+    return phrase.trim().split(/\s+/g)
   }
 
   static deriveRootKey(phrase: string | string[]): Bip32PrivateKey {
-    let mnemonic = Array.isArray(phrase) ? phrase.join(" ") : phrase;
-    const entropy = mnemonicToEntropy(mnemonic);
+    const mnemonic = Array.isArray(phrase) ? phrase.join(' ') : phrase
+    const entropy = mnemonicToEntropy(mnemonic)
     const rootKey = Bip32PrivateKey.from_bip39_entropy(
-      Buffer.from(entropy, "hex"),
-      Buffer.from("")
-    );
-    return rootKey;
+      Buffer.from(entropy, 'hex'),
+      Buffer.from('')
+    )
+    return rootKey
   }
 
-  static deriveAccountKey(
-    key: Bip32PrivateKey,
-    index: number = 0
-  ): Bip32PrivateKey {
+  static deriveAccountKey(key: Bip32PrivateKey, index = 0): Bip32PrivateKey {
     return key
       .derive(Seed.harden(CARDANO_PUROPOSE)) // purpose
       .derive(Seed.harden(CARDANO_COIN_TYPE)) // coin type
-      .derive(Seed.harden(index)); // account #0
+      .derive(Seed.harden(index)) // account #0
   }
 
   static deriveKey(key: Bip32PrivateKey, path: string[]): Bip32PrivateKey {
-    let result = key;
+    let result = key
     path.forEach((p) => {
       result = result.derive(
-        p.endsWith("H") || p.endsWith("'")
+        p.endsWith('H') || p.endsWith("'")
           ? Seed.harden(Number.parseInt(p.substr(0, p.length - 1)))
           : Number.parseInt(p)
-      );
-    });
+      )
+    })
 
-    return result;
+    return result
   }
 
   static buildTransaction(
     coinSelection: CoinSelectionWallet,
     ttl: number,
     opts: { [key: string]: any } = {
-      changeAddress: "",
+      changeAddress: '',
       metadata: null as any,
       startSlot: 0,
-      config: Mainnet,
+      config: Mainnet
     }
   ): TransactionBody {
-    let config = opts.config || Mainnet;
-    let metadata = opts.metadata;
-    let startSlot = opts.startSlot || 0;
-    let tbConfig = TransactionBuilderConfigBuilder.new()
+    const config = opts.config || Mainnet
+    const metadata = opts.metadata
+    const startSlot = opts.startSlot || 0
+    const tbConfig = TransactionBuilderConfigBuilder.new()
       // all of these are taken from the mainnet genesis settings
       // linear fee parameters (a*size + b)
       .fee_algo(
@@ -149,70 +146,70 @@ export class Seed {
       .max_value_size(config.protocolParams.maxValueSize)
       // max tx size
       .max_tx_size(config.protocolParams.maxTxSize)
-      .build();
+      .build()
 
-    let txBuilder = TransactionBuilder.new(tbConfig);
+    const txBuilder = TransactionBuilder.new(tbConfig)
 
     // add tx inputs
     coinSelection.inputs.forEach((input, i) => {
-      let address = Address.from_bech32(input.address);
-      let txInput = TransactionInput.new(
-        TransactionHash.from_bytes(Buffer.from(input.id, "hex")),
+      const address = Address.from_bech32(input.address)
+      const txInput = TransactionInput.new(
+        TransactionHash.from_bytes(Buffer.from(input.id, 'hex')),
         input.index
-      );
-      let amount = Value.new(toBigNum(input.amount.quantity));
+      )
+      const amount = Value.new(toBigNum(input.amount.quantity))
 
-      txBuilder.add_input(address, txInput, amount);
-    });
+      txBuilder.add_input(address, txInput, amount)
+    })
 
     // add tx outputs
     coinSelection.outputs.forEach((output) => {
-      let address = Address.from_bech32(output.address);
-      let amount = Value.new(toBigNum(output.amount.quantity));
+      const address = Address.from_bech32(output.address)
+      const amount = Value.new(toBigNum(output.amount.quantity))
 
       // add tx assets
       if (output.assets && output.assets.length > 0) {
-        let multiAsset = Seed.buildMultiAssets(output.assets);
-        amount.set_multiasset(multiAsset);
+        const multiAsset = Seed.buildMultiAssets(output.assets)
+        amount.set_multiasset(multiAsset)
       }
 
-      let txOutput = TransactionOutput.new(address, amount);
-      txBuilder.add_output(txOutput);
-    });
+      const txOutput = TransactionOutput.new(address, amount)
+      txBuilder.add_output(txOutput)
+    })
 
     // add tx change
     coinSelection.change.forEach((change) => {
-      let address = Address.from_bech32(change.address);
-      let amount = Value.new(toBigNum(change.amount.quantity));
+      const address = Address.from_bech32(change.address)
+      const amount = Value.new(toBigNum(change.amount.quantity))
 
       // add tx assets
       if (change.assets && change.assets.length > 0) {
-        let multiAsset = Seed.buildMultiAssets(change.assets);
-        amount.set_multiasset(multiAsset);
+        const multiAsset = Seed.buildMultiAssets(change.assets)
+        amount.set_multiasset(multiAsset)
       }
 
-      let txOutput = TransactionOutput.new(address, amount);
-      txBuilder.add_output(txOutput);
-    });
+      const txOutput = TransactionOutput.new(address, amount)
+      txBuilder.add_output(txOutput)
+    })
 
     // add tx metadata
     if (metadata) {
-      txBuilder.set_auxiliary_data(metadata);
+      txBuilder.set_auxiliary_data(metadata)
     }
 
     // set tx validity start interval
-    txBuilder.set_validity_start_interval(startSlot);
+    txBuilder.set_validity_start_interval(startSlot)
 
     // set tx ttl
-    txBuilder.set_ttl(ttl);
+    txBuilder.set_ttl(ttl)
 
     // calculate fee
     if (opts.changeAddress) {
       // don't take the implicit fee
-      let address = Address.from_bech32(opts.changeAddress);
-      txBuilder.add_change_if_needed(address);
+      const address = Address.from_bech32(opts.changeAddress)
+      txBuilder.add_change_if_needed(address)
     } else {
-      let fee =
+      const fee =
         opts.fee ||
         coinSelection.inputs.reduce((acc, c) => c.amount.quantity + acc, 0) +
           (coinSelection.withdrawals?.reduce(
@@ -221,12 +218,11 @@ export class Seed {
           ) || 0) -
           coinSelection.outputs.reduce((acc, c) => c.amount.quantity + acc, 0) -
           coinSelection.change.reduce((acc, c) => c.amount.quantity + acc, 0) -
-          (coinSelection.deposits?.reduce((acc, c) => c.quantity + acc, 0) ||
-            0);
-      txBuilder.set_fee(toBigNum(fee));
+          (coinSelection.deposits?.reduce((acc, c) => c.quantity + acc, 0) || 0)
+      txBuilder.set_fee(toBigNum(fee))
     }
-    let txBody = txBuilder.build();
-    return txBody;
+    const txBody = txBuilder.build()
+    return txBody
   }
 
   static buildTransactionWithToken(
@@ -235,23 +231,23 @@ export class Seed {
     tokens: TokenWallet[],
     signingKeys: PrivateKey[],
     opts: { [key: string]: any } = {
-      changeAddress: "",
+      changeAddress: '',
       data: null as any,
       startSlot: 0,
-      config: Mainnet,
+      config: Mainnet
     },
-    encoding: BufferEncoding = "hex"
+    encoding: BufferEncoding = 'hex'
   ): TransactionBody {
-    let metadata = opts.data ? Seed.buildTransactionMetadata(opts.data) : null;
-    opts.config = opts.config || Mainnet;
+    let metadata = opts.data ? Seed.buildTransactionMetadata(opts.data) : null
+    opts.config = opts.config || Mainnet
     // set maximun fee first
     const fee = parseInt(
       opts.config.protocolParams.maxTxSize *
         opts.config.protocolParams.txFeePerByte +
         opts.config.protocolParams.txFeeFixed
-    ); // 16384 * 44 + 155381 = 876277
+    ) // 16384 * 44 + 155381 = 876277
     if (!opts.fee) {
-      opts.fee = fee;
+      opts.fee = fee
       // adjust change if there is any
       if (coinSelection.change && coinSelection.change.length > 0) {
         const selectionfee =
@@ -262,61 +258,60 @@ export class Seed {
           ) || 0) -
           coinSelection.outputs.reduce((acc, c) => c.amount.quantity + acc, 0) -
           coinSelection.change.reduce((acc, c) => c.amount.quantity + acc, 0) -
-          (coinSelection.deposits?.reduce((acc, c) => c.quantity + acc, 0) ||
-            0);
+          (coinSelection.deposits?.reduce((acc, c) => c.quantity + acc, 0) || 0)
 
         const feePerChange = Math.ceil(
           (opts.fee - selectionfee) / coinSelection.change.length
-        );
+        )
         coinSelection.change = coinSelection.change.map((change) => {
-          change.amount.quantity -= feePerChange;
-          return change;
-        });
+          change.amount.quantity -= feePerChange
+          return change
+        })
       }
     }
 
-    let buildOpts = Object.assign({}, { metadata: metadata, ...opts });
+    let buildOpts = Object.assign({}, { metadata: metadata, ...opts })
 
     // create mint token data
-    let mint = Seed.buildTransactionMint(tokens, encoding);
+    const mint = Seed.buildTransactionMint(tokens, encoding)
 
     // get token's scripts
-    let scripts = tokens.map((t) => t.script);
+    const scripts = tokens.map((t) => t.script)
 
     // set mint into tx
-    let txBody = Seed.buildTransaction(coinSelection, ttl, buildOpts);
-    txBody.set_mint(mint);
+    let txBody = Seed.buildTransaction(coinSelection, ttl, buildOpts)
+    txBody.set_mint(mint)
 
     // sign to calculate the real tx fee;
-    let tx = Seed.sign(txBody, signingKeys, metadata, scripts);
+    const tx = Seed.sign(txBody, signingKeys, metadata, scripts)
 
     // NOTE: txFee should be <= original fee = maxTxSize * txFeePerByte + txFeeFixed
     // Also after rearrange the outputs will decrease along with fee field, so new tx fee won't increase because tx's size (bytes) will be smaller;
-    const txFee = parseInt(Seed.getTransactionFee(tx, opts.config).to_str());
+    const txFee = parseInt(Seed.getTransactionFee(tx, opts.config).to_str())
     // if (txFee > fee) throw new Error(`expected tx size less than ${opts.config.protocolParams.maxTxSize} but got: ${(txFee - opts.config.protocolParams.txFeeFixed)/opts.config.protocolParams.txFeePerByte}`)
 
-    const finalFee = txFee;
+    const finalFee = txFee
     // const finalFee = Math.min(txFee, (fee || Number.MAX_SAFE_INTEGER)); // we'll use the min fee on final tx
-    opts.fee = finalFee;
+    opts.fee = finalFee
 
     // adjust change UTXO
-    const feeDiff = fee - finalFee;
+    const feeDiff = fee - finalFee
     if (coinSelection.change && coinSelection.change.length > 0) {
-      const feeDiffPerChange = Math.ceil(feeDiff / coinSelection.change.length);
+      const feeDiffPerChange = Math.ceil(feeDiff / coinSelection.change.length)
       coinSelection.change = coinSelection.change.map((c) => {
-        c.amount.quantity += feeDiffPerChange;
-        return c;
-      });
+        c.amount.quantity += feeDiffPerChange
+        return c
+      })
     }
 
     // after signing the metadata is cleaned so we need to create it again
-    metadata = opts.data ? Seed.buildTransactionMetadata(opts.data) : null;
-    buildOpts = Object.assign({}, { metadata: metadata, ...opts });
+    metadata = opts.data ? Seed.buildTransactionMetadata(opts.data) : null
+    buildOpts = Object.assign({}, { metadata: metadata, ...opts })
 
-    txBody = Seed.buildTransaction(coinSelection, ttl, buildOpts);
-    txBody.set_mint(mint);
+    txBody = Seed.buildTransaction(coinSelection, ttl, buildOpts)
+    txBody.set_mint(mint)
 
-    return txBody;
+    return txBody
   }
 
   static buildTransactionMultisig(
@@ -326,20 +321,20 @@ export class Seed {
     tokens: TokenWallet[] = null,
     signingKeys: PrivateKey[] = null,
     opts: { [key: string]: any } = {
-      changeAddress: "",
+      changeAddress: '',
       data: null,
       startSlot: 0,
-      config: Mainnet,
+      config: Mainnet
     },
-    encoding: BufferEncoding = "hex"
+    encoding: BufferEncoding = 'hex'
   ): MultisigTransaction {
-    const config = opts.config || Mainnet;
-    let metadata = opts.data ? Seed.buildTransactionMetadata(opts.data) : null;
-    const startSlot = opts.startSlot || 0;
+    const config = opts.config || Mainnet
+    const metadata = opts.data ? Seed.buildTransactionMetadata(opts.data) : null
+    const startSlot = opts.startSlot || 0
     const selectionfee = parseInt(
       config.protocolParams.maxTxSize * config.protocolParams.txFeePerByte +
         config.protocolParams.txFeeFixed
-    ); // 16384 * 44 + 155381 = 876277
+    ) // 16384 * 44 + 155381 = 876277
     const currentfee =
       coinSelection.inputs.reduce((acc, c) => c.amount.quantity + acc, 0) +
       (coinSelection.withdrawals?.reduce(
@@ -348,98 +343,98 @@ export class Seed {
       ) || 0) -
       coinSelection.outputs.reduce((acc, c) => c.amount.quantity + acc, 0) -
       coinSelection.change.reduce((acc, c) => c.amount.quantity + acc, 0) -
-      (coinSelection.deposits?.reduce((acc, c) => c.quantity + acc, 0) || 0);
+      (coinSelection.deposits?.reduce((acc, c) => c.quantity + acc, 0) || 0)
 
     // add witnesses Ed25519KeyHash from input addresses
-    const vkeys: { [key: string]: number } = {};
+    const vkeys: { [key: string]: number } = {}
 
     // add tx inputs
     const inputs = coinSelection.inputs.map((input, i) => {
       // check if input is vkeywitness
-      const addr = Address.from_bech32(input.address);
-      const baseAddr = BaseAddress.from_address(addr);
-      const inputHash = baseAddr.payment_cred().to_keyhash();
+      const addr = Address.from_bech32(input.address)
+      const baseAddr = BaseAddress.from_address(addr)
+      const inputHash = baseAddr.payment_cred().to_keyhash()
       if (inputHash) {
-        vkeys[inputHash.to_bech32("vkey_")] =
-          (vkeys[inputHash.to_bech32("vkey_")] || 0) + 1;
+        vkeys[inputHash.to_bech32('vkey_')] =
+          (vkeys[inputHash.to_bech32('vkey_')] || 0) + 1
       }
 
       return TransactionInput.new(
-        TransactionHash.from_bytes(Buffer.from(input.id, "hex")),
+        TransactionHash.from_bytes(Buffer.from(input.id, 'hex')),
         input.index
-      );
-    });
+      )
+    })
 
     // add tx outputs
-    let outputs = coinSelection.outputs.map((output) => {
-      let address = Address.from_bech32(output.address);
-      let amount = Value.new(toBigNum(output.amount.quantity));
+    const outputs = coinSelection.outputs.map((output) => {
+      const address = Address.from_bech32(output.address)
+      const amount = Value.new(toBigNum(output.amount.quantity))
 
       // add tx assets
       if (output.assets && output.assets.length > 0) {
-        let multiAsset = Seed.buildMultiAssets(output.assets, encoding);
-        amount.set_multiasset(multiAsset);
+        const multiAsset = Seed.buildMultiAssets(output.assets, encoding)
+        amount.set_multiasset(multiAsset)
       }
 
-      return TransactionOutput.new(address, amount);
-    });
+      return TransactionOutput.new(address, amount)
+    })
 
     // adjust changes to match maximum fee
     if (coinSelection.change && coinSelection.change.length > 0) {
-      const feeDiff = selectionfee - currentfee;
+      const feeDiff = selectionfee - currentfee
       const feeDiffPerChange = Math.abs(
         Math.ceil(feeDiff / coinSelection.change.length)
-      );
+      )
       for (let i = 0; i < coinSelection.change.length; i++) {
-        const change = coinSelection.change[i];
+        const change = coinSelection.change[i]
         change.amount.quantity =
           feeDiff > 0
             ? change.amount.quantity - feeDiffPerChange
-            : change.amount.quantity + feeDiffPerChange;
+            : change.amount.quantity + feeDiffPerChange
 
-        let address = Address.from_bech32(change.address);
-        let amount = Value.new(toBigNum(change.amount.quantity));
+        const address = Address.from_bech32(change.address)
+        const amount = Value.new(toBigNum(change.amount.quantity))
 
         // add tx assets
         if (change.assets && change.assets.length > 0) {
-          let multiAsset = Seed.buildMultiAssets(change.assets, encoding);
-          amount.set_multiasset(multiAsset);
+          const multiAsset = Seed.buildMultiAssets(change.assets, encoding)
+          amount.set_multiasset(multiAsset)
         }
 
-        const out = TransactionOutput.new(address, amount);
+        const out = TransactionOutput.new(address, amount)
 
-        outputs.push(out);
+        outputs.push(out)
       }
     }
 
-    const txInputs = TransactionInputs.new();
-    inputs.forEach((txin) => txInputs.add(txin));
-    let txOutputs = TransactionOutputs.new();
-    outputs.forEach((txout) => txOutputs.add(txout));
+    const txInputs = TransactionInputs.new()
+    inputs.forEach((txin) => txInputs.add(txin))
+    const txOutputs = TransactionOutputs.new()
+    outputs.forEach((txout) => txOutputs.add(txout))
     const txBody = TransactionBody.new(
       txInputs,
       txOutputs,
       toBigNum(selectionfee),
       ttl
-    );
+    )
 
     // add tx metadata
     if (metadata) {
-      const dataHash = hash_auxiliary_data(metadata);
-      txBody.set_auxiliary_data_hash(dataHash);
+      const dataHash = hash_auxiliary_data(metadata)
+      txBody.set_auxiliary_data_hash(dataHash)
     }
 
     if (tokens) {
       // create mint token data
-      const mint = Seed.buildTransactionMint(tokens, encoding);
-      txBody.set_mint(mint);
+      const mint = Seed.buildTransactionMint(tokens, encoding)
+      txBody.set_mint(mint)
     }
 
     // set tx validity start interval
-    txBody.set_validity_start_interval(startSlot);
+    txBody.set_validity_start_interval(startSlot)
     const numOfWitnesses =
       Object.values(vkeys).reduce((total, cur) => total + cur, 0) +
-      scripts.reduce((t, c) => t + c.get_required_signers().len(), 0);
+      scripts.reduce((t, c) => t + c.get_required_signers().len(), 0)
     return MultisigTransaction.new(
       coinSelection,
       txBody,
@@ -450,78 +445,78 @@ export class Seed {
       encoding,
       metadata,
       tokens
-    );
+    )
   }
 
   static buildMultiAssets(
     assets: WalletsAssetsAvailable[],
-    encoding: BufferEncoding = "hex"
+    encoding: BufferEncoding = 'hex'
   ): MultiAsset {
-    let multiAsset = MultiAsset.new();
+    const multiAsset = MultiAsset.new()
     const groups = assets.reduce(
       (
         dict: { [key: string]: WalletsAssetsAvailable[] },
         asset: WalletsAssetsAvailable
       ) => {
-        (dict[asset.policy_id] = dict[asset.policy_id] || []).push(asset);
-        return dict;
+        ;(dict[asset.policy_id] = dict[asset.policy_id] || []).push(asset)
+        return dict
       },
       {}
-    );
+    )
     for (const policy_id in groups) {
-      const scriptHash = Seed.getScriptHashFromPolicy(policy_id);
-      let asset = Assets.new();
+      const scriptHash = Seed.getScriptHashFromPolicy(policy_id)
+      const asset = Assets.new()
       const assetGroups = groups[policy_id].reduce(
         (dict: { [key: string]: number }, asset: WalletsAssetsAvailable) => {
           dict[asset.asset_name] =
-            (dict[asset.asset_name] || 0) + +asset.quantity;
-          return dict;
+            (dict[asset.asset_name] || 0) + +asset.quantity
+          return dict
         },
         {}
-      );
+      )
       for (const asset_name in assetGroups) {
-        const quantity = assetGroups[asset_name];
-        const assetName = AssetName.new(Buffer.from(asset_name, encoding));
-        asset.insert(assetName, toBigNum(quantity));
+        const quantity = assetGroups[asset_name]
+        const assetName = AssetName.new(Buffer.from(asset_name, encoding))
+        asset.insert(assetName, toBigNum(quantity))
       }
-      multiAsset.insert(scriptHash, asset);
+      multiAsset.insert(scriptHash, asset)
     }
-    return multiAsset;
+    return multiAsset
   }
 
   static buildTransactionMint(
     tokens: TokenWallet[],
-    encoding: BufferEncoding = "utf8"
+    encoding: BufferEncoding = 'utf8'
   ): Mint {
-    let mint = Mint.new();
+    const mint = Mint.new()
     const groups = tokens.reduce(
       (dict: { [key: string]: TokenWallet[] }, asset: TokenWallet) => {
-        (dict[asset.asset.policy_id] = dict[asset.asset.policy_id] || []).push(
+        ;(dict[asset.asset.policy_id] = dict[asset.asset.policy_id] || []).push(
           asset
-        );
-        return dict;
+        )
+        return dict
       },
       {}
-    );
+    )
     for (const policy_id in groups) {
-      const scriptHash = Seed.getScriptHashFromPolicy(policy_id);
-      let mintAssets = MintAssets.new();
+      const scriptHash = Seed.getScriptHashFromPolicy(policy_id)
+      const mintAssets = MintAssets.new()
       const assetGroups = groups[policy_id].reduce(
         (dict: { [key: string]: number }, asset: TokenWallet) => {
           dict[asset.asset.asset_name] =
-            (dict[asset.asset.asset_name] || 0) + +asset.asset.quantity;
-          return dict;
+            (dict[asset.asset.asset_name] || 0) + +asset.asset.quantity
+          return dict
         },
         {}
-      );
+      )
       for (const asset_name in assetGroups) {
-        const quantity = assetGroups[asset_name];
-        const assetName = AssetName.new(Buffer.from(asset_name, encoding));
-        mintAssets.insert(assetName, Int.new(toBigNum(quantity)));
+        const quantity = assetGroups[asset_name]
+        const assetName = AssetName.new(Buffer.from(asset_name, encoding))
+        mintAssets.insert(assetName, Int.new(toBigNum(quantity)))
       }
-      mint.insert(scriptHash, mintAssets);
+      mint.insert(scriptHash, mintAssets)
     }
-    return mint;
+    return mint
   }
 
   static getTransactionFee(tx: Transaction, config = Mainnet) {
@@ -531,33 +526,33 @@ export class Seed {
         toBigNum(config.protocolParams.txFeePerByte),
         toBigNum(config.protocolParams.txFeeFixed)
       )
-    );
+    )
   }
 
   static addKeyWitness(
     transaction: Transaction,
     prvKey: PrivateKey
   ): Transaction {
-    const vkeyWitnesses = Vkeywitnesses.new();
-    const txBody = transaction.body();
-    const txHash = hash_transaction(txBody);
-    const vkeyWitness = make_vkey_witness(txHash, prvKey);
-    vkeyWitnesses.add(vkeyWitness);
-    const witnesses = transaction.witness_set();
-    witnesses.set_vkeys(vkeyWitnesses);
-    return Transaction.new(txBody, witnesses, transaction.auxiliary_data());
+    const vkeyWitnesses = Vkeywitnesses.new()
+    const txBody = transaction.body()
+    const txHash = hash_transaction(txBody)
+    const vkeyWitness = make_vkey_witness(txHash, prvKey)
+    vkeyWitnesses.add(vkeyWitness)
+    const witnesses = transaction.witness_set()
+    witnesses.set_vkeys(vkeyWitnesses)
+    return Transaction.new(txBody, witnesses, transaction.auxiliary_data())
   }
 
   static addScriptWitness(
     transaction: Transaction,
     script: NativeScript
   ): Transaction {
-    const txBody = transaction.body();
-    const nativeScripts = NativeScripts.new();
-    nativeScripts.add(script);
-    const witnesses = transaction.witness_set();
-    witnesses.set_native_scripts(nativeScripts);
-    return Transaction.new(txBody, witnesses, transaction.auxiliary_data());
+    const txBody = transaction.body()
+    const nativeScripts = NativeScripts.new()
+    nativeScripts.add(script)
+    const witnesses = transaction.witness_set()
+    witnesses.set_native_scripts(nativeScripts)
+    return Transaction.new(txBody, witnesses, transaction.auxiliary_data())
   }
 
   static sign(
@@ -566,32 +561,32 @@ export class Seed {
     transactionMetadata?: AuxiliaryData,
     scripts?: NativeScript[]
   ): Transaction {
-    const txHash = hash_transaction(txBody);
-    const witnesses = TransactionWitnessSet.new();
-    const vkeyWitnesses = Vkeywitnesses.new();
+    const txHash = hash_transaction(txBody)
+    const witnesses = TransactionWitnessSet.new()
+    const vkeyWitnesses = Vkeywitnesses.new()
     if (privateKeys) {
       privateKeys.forEach((prvKey) => {
         // add keyhash witnesses
-        const vkeyWitness = make_vkey_witness(txHash, prvKey);
-        vkeyWitnesses.add(vkeyWitness);
-      });
+        const vkeyWitness = make_vkey_witness(txHash, prvKey)
+        vkeyWitnesses.add(vkeyWitness)
+      })
     }
-    witnesses.set_vkeys(vkeyWitnesses);
+    witnesses.set_vkeys(vkeyWitnesses)
     if (scripts) {
-      let nativeScripts = NativeScripts.new();
+      const nativeScripts = NativeScripts.new()
       scripts.forEach((s) => {
-        nativeScripts.add(s);
-      });
-      witnesses.set_native_scripts(nativeScripts);
+        nativeScripts.add(s)
+      })
+      witnesses.set_native_scripts(nativeScripts)
     }
 
-    const transaction = Transaction.new(txBody, witnesses, transactionMetadata);
+    const transaction = Transaction.new(txBody, witnesses, transactionMetadata)
 
-    return transaction;
+    return transaction
   }
 
   static signMessage(key: PrivateKey, message: string): string {
-    return key.sign(Buffer.from(message)).to_hex();
+    return key.sign(Buffer.from(message)).to_hex()
   }
 
   static verifyMessage(
@@ -599,319 +594,319 @@ export class Seed {
     message: string,
     signed: string
   ): boolean {
-    return key.verify(Buffer.from(message), Ed25519Signature.from_hex(signed));
+    return key.verify(Buffer.from(message), Ed25519Signature.from_hex(signed))
   }
 
   static getTxId(transaction: Transaction): string {
-    const txBody = transaction.body();
-    const txHash = hash_transaction(txBody);
-    const txId = Buffer.from(txHash.to_bytes()).toString("hex");
-    return txId;
+    const txBody = transaction.body()
+    const txHash = hash_transaction(txBody)
+    const txId = Buffer.from(txHash.to_bytes()).toString('hex')
+    return txId
   }
 
   static convertPrivateKeyToSignKey(
     prkKey: Bip32PrivateKey
   ): ExtendedSigningKey {
     // const k = Bip32PrivateKey.from_bech32(scriptKeys[1]);
-    console.log(prkKey.to_bech32());
+    console.log(prkKey.to_bech32())
     // const hex = Buffer.from(prkKey.to_raw_key().as_bytes()).toString('hex');
-    const cborHex = "5880" + Buffer.from(prkKey.to_128_xprv()).toString("hex");
-    return new ExtendedSigningKey(cborHex);
+    const cborHex = '5880' + Buffer.from(prkKey.to_128_xprv()).toString('hex')
+    return new ExtendedSigningKey(cborHex)
     // console.log(hex);
   }
 
   static harden(num: number): number {
-    return 0x80000000 + num;
+    return 0x80000000 + num
   }
 
   static constructMetadata(data: any) {
-    let metadata: any = {};
+    const metadata: any = {}
 
     if (Array.isArray(data)) {
       for (let i = 0; i < data.length; i++) {
-        const value = data[i];
-        metadata[i] = Seed.getMetadataObject(value);
+        const value = data[i]
+        metadata[i] = Seed.getMetadataObject(value)
       }
     } else {
-      let keys = Object.keys(data);
+      const keys = Object.keys(data)
       for (let i = 0; i < keys.length; i++) {
-        const key = keys[i];
+        const key = keys[i]
         if (this.isInteger(key)) {
-          let index = parseInt(key);
-          metadata[index] = Seed.getMetadataObject(data[key]);
+          const index = parseInt(key)
+          metadata[index] = Seed.getMetadataObject(data[key])
         }
       }
     }
-    return metadata;
+    return metadata
   }
 
   static getMetadataObject(data: any) {
-    let result: any = {};
-    let type = typeof data;
-    if (type == "number") {
-      result[MetadateTypesEnum.Number] = data;
-    } else if (type == "string" && Buffer.byteLength(data, "utf-8") <= 64) {
-      result[MetadateTypesEnum.String] = data;
-    } else if (Buffer.isBuffer(data) && Buffer.byteLength(data, "hex") <= 64) {
-      result[MetadateTypesEnum.Bytes] = data.toString("hex");
-    } else if (type == "boolean") {
-      result[MetadateTypesEnum.String] = data.toString();
-    } else if (type == "undefined") {
-      result[MetadateTypesEnum.String] = "undefined";
+    const result: any = {}
+    const type = typeof data
+    if (type == 'number') {
+      result[MetadateTypesEnum.Number] = data
+    } else if (type == 'string' && Buffer.byteLength(data, 'utf-8') <= 64) {
+      result[MetadateTypesEnum.String] = data
+    } else if (Buffer.isBuffer(data) && Buffer.byteLength(data, 'hex') <= 64) {
+      result[MetadateTypesEnum.Bytes] = data.toString('hex')
+    } else if (type == 'boolean') {
+      result[MetadateTypesEnum.String] = data.toString()
+    } else if (type == 'undefined') {
+      result[MetadateTypesEnum.String] = 'undefined'
     } else if (Array.isArray(data)) {
       result[MetadateTypesEnum.List] = data.map((a) =>
         this.getMetadataObject(a)
-      );
-    } else if (type == "object") {
+      )
+    } else if (type == 'object') {
       if (data) {
         result[MetadateTypesEnum.Map] = Object.keys(data).map((k) => {
           return {
             k: this.getMetadataObject(k),
-            v: this.getMetadataObject(data[k]),
-          };
-        });
+            v: this.getMetadataObject(data[k])
+          }
+        })
       } else {
-        result[MetadateTypesEnum.String] = "null";
+        result[MetadateTypesEnum.String] = 'null'
       }
     }
-    return result;
+    return result
   }
 
-  static reverseMetadata(data: any, type = "object"): any {
+  static reverseMetadata(data: any, type = 'object'): any {
     if (!data) {
-      return null;
+      return null
     }
-    let metadata: any = type == "object" ? {} : [];
-    let keys = Object.keys(data);
+    const metadata: any = type == 'object' ? {} : []
+    const keys = Object.keys(data)
     for (let i = 0; i < keys.length; i++) {
-      const key = keys[i];
-      let index = parseInt(key);
-      metadata[index] = Seed.reverseMetadataObject(data[key]);
+      const key = keys[i]
+      const index = parseInt(key)
+      metadata[index] = Seed.reverseMetadataObject(data[key])
     }
-    return metadata;
+    return metadata
   }
 
   static reverseMetadataObject(data: any): any {
-    let result = [];
-    let keys = Object.keys(data);
+    const result = []
+    const keys = Object.keys(data)
     for (let i = 0; i < keys.length; i++) {
-      const key = keys[i];
-      let value = data[key];
-      if (key == "string") {
-        result.push(value);
-      } else if (key == "int") {
-        result.push(new Number(value));
-      } else if (key == "bytes") {
-        result.push(Buffer.from(value, "hex"));
-      } else if (key == "list") {
-        result.push(value.map((d: any) => Seed.reverseMetadataObject(d)));
-      } else if (key == "map") {
-        let map = value.reduce((acc: any, obj: any) => {
-          let k = Seed.reverseMetadataObject(obj["k"]);
-          let v = Seed.reverseMetadataObject(obj["v"]);
-          acc[k] = v;
-          return acc;
-        }, {});
-        result.push(map);
+      const key = keys[i]
+      const value = data[key]
+      if (key == 'string') {
+        result.push(value)
+      } else if (key == 'int') {
+        result.push(new Number(value))
+      } else if (key == 'bytes') {
+        result.push(Buffer.from(value, 'hex'))
+      } else if (key == 'list') {
+        result.push(value.map((d: any) => Seed.reverseMetadataObject(d)))
+      } else if (key == 'map') {
+        const map = value.reduce((acc: any, obj: any) => {
+          const k = Seed.reverseMetadataObject(obj['k'])
+          const v = Seed.reverseMetadataObject(obj['v'])
+          acc[k] = v
+          return acc
+        }, {})
+        result.push(map)
       } else {
-        result.push(null);
+        result.push(null)
       }
     }
-    return result.length == 1 ? result[0] : result;
+    return result.length == 1 ? result[0] : result
   }
 
   static buildTransactionMetadata(data: any): AuxiliaryData {
-    let metadata = Seed.constructMetadata(data);
-    let generalMetatada = GeneralTransactionMetadata.new();
+    const metadata = Seed.constructMetadata(data)
+    const generalMetatada = GeneralTransactionMetadata.new()
     for (const key in metadata) {
-      let value = metadata[key];
+      const value = metadata[key]
       generalMetatada.insert(
         BigNum.from_str(key),
         Seed.getTransactionMetadatum(value)
-      );
+      )
     }
-    let auxiliaryData = AuxiliaryData.new();
-    auxiliaryData.set_metadata(generalMetatada);
-    return auxiliaryData;
+    const auxiliaryData = AuxiliaryData.new()
+    auxiliaryData.set_metadata(generalMetatada)
+    return auxiliaryData
   }
 
   static getTransactionMetadatum(value: any): TransactionMetadatum {
     if (value.hasOwnProperty(MetadateTypesEnum.Number)) {
       return TransactionMetadatum.new_int(
         Int.new(toBigNum(value[MetadateTypesEnum.Number]))
-      );
+      )
     }
     if (value.hasOwnProperty(MetadateTypesEnum.String)) {
-      return TransactionMetadatum.new_text(value[MetadateTypesEnum.String]);
+      return TransactionMetadatum.new_text(value[MetadateTypesEnum.String])
     }
     if (value.hasOwnProperty(MetadateTypesEnum.Bytes)) {
       return TransactionMetadatum.new_bytes(
-        Buffer.from(value[MetadateTypesEnum.Bytes], "hex")
-      );
+        Buffer.from(value[MetadateTypesEnum.Bytes], 'hex')
+      )
     }
     if (value.hasOwnProperty(MetadateTypesEnum.List)) {
-      let list = value[MetadateTypesEnum.List];
-      let metalist = MetadataList.new();
+      const list = value[MetadateTypesEnum.List]
+      const metalist = MetadataList.new()
       for (let i = 0; i < list.length; i++) {
-        metalist.add(Seed.getTransactionMetadatum(list[i]));
+        metalist.add(Seed.getTransactionMetadatum(list[i]))
       }
-      return TransactionMetadatum.new_list(metalist);
+      return TransactionMetadatum.new_list(metalist)
     }
     if (value.hasOwnProperty(MetadateTypesEnum.Map)) {
-      let map = value[MetadateTypesEnum.Map];
-      let metamap = MetadataMap.new();
+      const map = value[MetadateTypesEnum.Map]
+      const metamap = MetadataMap.new()
       for (let i = 0; i < map.length; i++) {
-        let { k, v } = map[i];
+        const { k, v } = map[i]
         metamap.insert(
           Seed.getTransactionMetadatum(k),
           Seed.getTransactionMetadatum(v)
-        );
+        )
       }
-      return TransactionMetadatum.new_map(metamap);
+      return TransactionMetadatum.new_map(metamap)
     }
   }
 
   static generateKeyPair(): Bip32KeyPair {
-    let prvKey = Bip32PrivateKey.generate_ed25519_bip32();
-    let pubKey = prvKey.to_public();
-    let pair: Bip32KeyPair = {
+    const prvKey = Bip32PrivateKey.generate_ed25519_bip32()
+    const pubKey = prvKey.to_public()
+    const pair: Bip32KeyPair = {
       privateKey: prvKey,
-      publicKey: pubKey,
-    };
+      publicKey: pubKey
+    }
 
-    return pair;
+    return pair
   }
 
   static generateBip32PrivateKey(): Bip32PrivateKey {
-    return Bip32PrivateKey.generate_ed25519_bip32();
+    return Bip32PrivateKey.generate_ed25519_bip32()
   }
 
   // enterprise address without staking ability, for use by exchanges/etc
   static getEnterpriseAddress(
     pubKey: Bip32PublicKey,
-    network = "mainnet"
+    network = 'mainnet'
   ): Address {
-    let networkId =
-      network == "mainnet"
+    const networkId =
+      network == 'mainnet'
         ? NetworkInfo.mainnet().network_id()
-        : NetworkInfo.testnet().network_id();
+        : NetworkInfo.testnet().network_id()
     return EnterpriseAddress.new(
       networkId,
       StakeCredential.from_keyhash(pubKey.to_raw_key().hash())
-    ).to_address();
+    ).to_address()
   }
 
   static getKeyHash(key: Bip32PublicKey): Ed25519KeyHash {
-    return key.to_raw_key().hash();
+    return key.to_raw_key().hash()
   }
 
   static buildSingleIssuerScript(keyHash: Ed25519KeyHash): NativeScript {
-    let scriptPubKey = ScriptPubkey.new(keyHash);
-    return NativeScript.new_script_pubkey(scriptPubKey);
+    const scriptPubKey = ScriptPubkey.new(keyHash)
+    return NativeScript.new_script_pubkey(scriptPubKey)
   }
 
   static buildMultiIssuerAllScript(scripts: NativeScript[]): NativeScript {
-    let nativeScripts = this.buildNativeScripts(scripts);
-    let scriptAll = ScriptAll.new(nativeScripts);
-    return NativeScript.new_script_all(scriptAll);
+    const nativeScripts = this.buildNativeScripts(scripts)
+    const scriptAll = ScriptAll.new(nativeScripts)
+    return NativeScript.new_script_all(scriptAll)
   }
 
   static buildMultiIssuerAnyScript(scripts: NativeScript[]): NativeScript {
-    let nativeScripts = this.buildNativeScripts(scripts);
-    let scriptAny = ScriptAny.new(nativeScripts);
-    return NativeScript.new_script_any(scriptAny);
+    const nativeScripts = this.buildNativeScripts(scripts)
+    const scriptAny = ScriptAny.new(nativeScripts)
+    return NativeScript.new_script_any(scriptAny)
   }
 
   static buildMultiIssuerAtLeastScript(
     n: number,
     scripts: NativeScript[]
   ): NativeScript {
-    let nativeScripts = this.buildNativeScripts(scripts);
-    let scriptAtLeast = ScriptNOfK.new(n, nativeScripts);
-    return NativeScript.new_script_n_of_k(scriptAtLeast);
+    const nativeScripts = this.buildNativeScripts(scripts)
+    const scriptAtLeast = ScriptNOfK.new(n, nativeScripts)
+    return NativeScript.new_script_n_of_k(scriptAtLeast)
   }
 
   // you need to set validity range on transcation builder to check on a deterministic way
   static buildAfterScript(slot: number): NativeScript {
-    let scriptAfter = TimelockStart.new(slot);
-    return NativeScript.new_timelock_start(scriptAfter);
+    const scriptAfter = TimelockStart.new(slot)
+    return NativeScript.new_timelock_start(scriptAfter)
   }
 
   // you need to set validity range on transcation builder to check on a deterministic way
   static buildBeforeScript(slot: number): NativeScript {
-    let scriptBefore = TimelockExpiry.new(slot);
-    return NativeScript.new_timelock_expiry(scriptBefore);
+    const scriptBefore = TimelockExpiry.new(slot)
+    return NativeScript.new_timelock_expiry(scriptBefore)
   }
 
   static getNativeScripts(script: Script): NativeScript[] {
-    const result: NativeScript[] = [];
-    const kind = script.root.kind();
+    const result: NativeScript[] = []
+    const kind = script.root.kind()
     if (kind == 0) {
       // sig
-      result.push(script.root);
+      result.push(script.root)
     } else if (kind == 1 || kind == 2 || kind == 3) {
       // all, any and atLeast respectivetly
-      result.push(...script.scripts.map((s) => s.root));
+      result.push(...script.scripts.map((s) => s.root))
     }
-    return result;
+    return result
   }
 
   private static buildNativeScripts(scripts: NativeScript[]): NativeScripts {
-    let nativeScripts = NativeScripts.new();
+    const nativeScripts = NativeScripts.new()
     scripts.forEach((script) => {
-      nativeScripts.add(script);
-    });
-    return nativeScripts;
+      nativeScripts.add(script)
+    })
+    return nativeScripts
   }
 
   static getScriptHash(script: NativeScript): ScriptHash {
-    let keyHash = script.hash(ScriptHashNamespace.NativeScript);
-    let scriptHash = ScriptHash.from_bytes(keyHash.to_bytes());
-    return scriptHash;
+    const keyHash = script.hash(ScriptHashNamespace.NativeScript)
+    const scriptHash = ScriptHash.from_bytes(keyHash.to_bytes())
+    return scriptHash
     // let credential = StakeCredential.from_keyhash(keyHash);
     // return credential.to_scripthash();
   }
 
   static getPolicyId(scriptHash: ScriptHash): string {
-    return Buffer.from(scriptHash.to_bytes()).toString("hex");
+    return Buffer.from(scriptHash.to_bytes()).toString('hex')
   }
 
   static getScriptHashFromPolicy(policyId: string): ScriptHash {
-    return ScriptHash.from_bytes(Buffer.from(policyId, "hex"));
+    return ScriptHash.from_bytes(Buffer.from(policyId, 'hex'))
   }
 
   static getMinUtxoValueWithAssets(
     tokenAssets: AssetWallet[],
     config: any = Mainnet,
-    encoding: BufferEncoding = "utf8"
+    encoding: BufferEncoding = 'utf8'
   ): number {
-    let assets = Value.new(toBigNum(1000000));
-    let multiAsset = MultiAsset.new();
+    const assets = Value.new(toBigNum(1000000))
+    const multiAsset = MultiAsset.new()
     const groups = tokenAssets.reduce(
       (dict: { [key: string]: AssetWallet[] }, asset: AssetWallet) => {
-        (dict[asset.policy_id] = dict[asset.policy_id] || []).push(asset);
-        return dict;
+        ;(dict[asset.policy_id] = dict[asset.policy_id] || []).push(asset)
+        return dict
       },
       {}
-    );
+    )
     for (const policy_id in groups) {
-      const scriptHash = Seed.getScriptHashFromPolicy(policy_id);
-      let asset = Assets.new();
+      const scriptHash = Seed.getScriptHashFromPolicy(policy_id)
+      const asset = Assets.new()
       groups[policy_id].forEach((a) => {
         asset.insert(
           AssetName.new(Buffer.from(a.asset_name, encoding)),
           toBigNum(a.quantity)
-        );
-      });
-      multiAsset.insert(scriptHash, asset);
+        )
+      })
+      multiAsset.insert(scriptHash, asset)
     }
-    assets.set_multiasset(multiAsset);
-    let min = min_ada_required(
+    assets.set_multiasset(multiAsset)
+    const min = min_ada_required(
       assets,
       false,
       toBigNum(config.protocolParams.utxoCostPerWord)
-    );
-    return Number.parseInt(min.to_str());
+    )
+    return Number.parseInt(min.to_str())
   }
 
   // static buildMultisigJsonScript(type: ScriptTypeEnum, witnesses: number = 2): JsonScript {
@@ -937,179 +932,179 @@ export class Seed {
   static buildScript(json: JsonScript, currentSlot?: number): Script {
     if (json.type === ScriptTypeEnum.Sig) {
       // Single Issuer
-      let keyPair: Bip32KeyPair; // needed to get the signing keys when export (e.g toJSON)
-      let keyHash: Ed25519KeyHash;
+      let keyPair: Bip32KeyPair // needed to get the signing keys when export (e.g toJSON)
+      let keyHash: Ed25519KeyHash
       if (!json.keyHash) {
-        keyPair = Seed.generateKeyPair();
-        keyHash = Seed.getKeyHash(keyPair.publicKey);
+        keyPair = Seed.generateKeyPair()
+        keyHash = Seed.getKeyHash(keyPair.publicKey)
       } else {
-        keyHash = Ed25519KeyHash.from_bytes(Buffer.from(json.keyHash, "hex"));
+        keyHash = Ed25519KeyHash.from_bytes(Buffer.from(json.keyHash, 'hex'))
       }
       return {
         root: Seed.buildSingleIssuerScript(keyHash),
-        keyHash: Buffer.from(keyHash.to_bytes()).toString("hex"),
+        keyHash: Buffer.from(keyHash.to_bytes()).toString('hex'),
         keyPair: keyPair,
-        scripts: [],
-      };
+        scripts: []
+      }
     }
     if (json.type === ScriptTypeEnum.All) {
       // Multiple Issuer All
-      let scripts = json.scripts.map((s) => Seed.buildScript(s, currentSlot));
+      const scripts = json.scripts.map((s) => Seed.buildScript(s, currentSlot))
       return {
         root: Seed.buildMultiIssuerAllScript(scripts.map((s) => s.root)),
-        scripts: scripts,
-      };
+        scripts: scripts
+      }
     }
     if (json.type === ScriptTypeEnum.Any) {
       // Multiple Issuer Any
-      let scripts = json.scripts.map((s) => Seed.buildScript(s, currentSlot));
+      const scripts = json.scripts.map((s) => Seed.buildScript(s, currentSlot))
       return {
         root: Seed.buildMultiIssuerAnyScript(scripts.map((s) => s.root)),
-        scripts: scripts,
-      };
+        scripts: scripts
+      }
     }
     if (json.type === ScriptTypeEnum.AtLeast) {
       // Multiple Issuer At least
-      let scripts = json.scripts.map((s) => Seed.buildScript(s, currentSlot));
-      let n = json.require;
+      const scripts = json.scripts.map((s) => Seed.buildScript(s, currentSlot))
+      const n = json.require
       return {
         root: Seed.buildMultiIssuerAtLeastScript(
           n,
           scripts.map((s) => s.root)
         ),
-        scripts: scripts,
-      };
+        scripts: scripts
+      }
     }
     if (json.type === ScriptTypeEnum.After) {
       // After
-      let slot = 0;
+      let slot = 0
       if (!json.slot) {
-        slot = currentSlot; // after now
-        let lockTime = json.lockTime;
-        if (lockTime != "now") {
-          let now = Date.now();
-          let datetime = new Date(lockTime).getTime();
-          slot = currentSlot + Math.floor((datetime - now) / 1000);
+        slot = currentSlot // after now
+        const lockTime = json.lockTime
+        if (lockTime != 'now') {
+          const now = Date.now()
+          const datetime = new Date(lockTime).getTime()
+          slot = currentSlot + Math.floor((datetime - now) / 1000)
         }
       } else {
-        slot = json.slot;
+        slot = json.slot
       }
-      return { root: Seed.buildAfterScript(slot), slot: slot, scripts: [] };
+      return { root: Seed.buildAfterScript(slot), slot: slot, scripts: [] }
     }
     if (json.type === ScriptTypeEnum.Before) {
       // Before
-      let slot = 0;
+      let slot = 0
       if (!json.slot) {
-        let lockTime = json.lockTime;
-        slot = currentSlot + 180; // only 3 min to mint tokens
-        if (lockTime != "now") {
-          let now = Date.now();
-          let datetime = new Date(lockTime).getTime();
-          slot = currentSlot + Math.floor((datetime - now) / 1000);
+        const lockTime = json.lockTime
+        slot = currentSlot + 180 // only 3 min to mint tokens
+        if (lockTime != 'now') {
+          const now = Date.now()
+          const datetime = new Date(lockTime).getTime()
+          slot = currentSlot + Math.floor((datetime - now) / 1000)
         }
       } else {
-        slot = json.slot;
+        slot = json.slot
       }
-      return { root: Seed.buildBeforeScript(slot), slot: slot, scripts: [] };
+      return { root: Seed.buildBeforeScript(slot), slot: slot, scripts: [] }
     }
   }
 
   static scriptToJson(script: Script): any {
-    let result: any = {};
-    result.type = scriptTypes[script.root.kind()];
+    const result: any = {}
+    result.type = scriptTypes[script.root.kind()]
     if (script.keyHash) {
-      result.keyHash = script.keyHash;
+      result.keyHash = script.keyHash
     }
-    if (result.type === "atLeast") {
+    if (result.type === 'atLeast') {
       // Multiple Issuer At least)
-      result.require = script.root.as_script_n_of_k().n();
+      result.require = script.root.as_script_n_of_k().n()
     }
-    if (result.type === "after" || result.type === "before") {
-      result.slot = script.slot;
+    if (result.type === 'after' || result.type === 'before') {
+      result.slot = script.slot
     }
     if (script.scripts && script.scripts.length > 0) {
-      result.scripts = script.scripts.map((s) => Seed.scriptToJson(s));
+      result.scripts = script.scripts.map((s) => Seed.scriptToJson(s))
     }
-    return result;
+    return result
   }
 
   static getScriptKeys(script: Script): Bip32PrivateKey[] {
-    let result: Bip32PrivateKey[] = [];
+    const result: Bip32PrivateKey[] = []
     if (script.keyPair) {
       // let prvKey = Bip32PrivateKey.from_bech32(script.signingKey);
       // let pubKey = prvKey.to_public();
       // result.push({ publicKey: pubKey, privateKey: prvKey});
-      result.push(script.keyPair.privateKey);
+      result.push(script.keyPair.privateKey)
     }
     script.scripts.forEach((s) => {
-      result.push(...Seed.getScriptKeys(s));
-    });
-    return result;
+      result.push(...Seed.getScriptKeys(s))
+    })
+    return result
   }
 
-  static getScriptAddress(script: Script, network = "mainnet"): Address {
-    let networkId =
-      network == "mainnet"
+  static getScriptAddress(script: Script, network = 'mainnet'): Address {
+    const networkId =
+      network == 'mainnet'
         ? NetworkInfo.mainnet().network_id()
-        : NetworkInfo.testnet().network_id();
-    const scriptHash = this.getScriptHash(script.root);
-    const credential = StakeCredential.from_scripthash(scriptHash);
-    return BaseAddress.new(networkId, credential, credential).to_address();
+        : NetworkInfo.testnet().network_id()
+    const scriptHash = this.getScriptHash(script.root)
+    const credential = StakeCredential.from_scripthash(scriptHash)
+    return BaseAddress.new(networkId, credential, credential).to_address()
   }
 
   static getPolicyScriptId(script: Script): string {
-    let scriptHash = Seed.getScriptHash(script.root);
-    return Buffer.from(scriptHash.to_bytes()).toString("hex");
+    const scriptHash = Seed.getScriptHash(script.root)
+    return Buffer.from(scriptHash.to_bytes()).toString('hex')
   }
 
   static findSlots(script: Script): { start?: number; end?: number } {
-    let result: { start?: number; end?: number } = {};
-    let type = script.root.kind();
+    const result: { start?: number; end?: number } = {}
+    const type = script.root.kind()
     if (type === 4) {
       //after
-      result.start = script.slot;
+      result.start = script.slot
     } else if (type === 5) {
       //before
-      result.end = script.slot;
+      result.end = script.slot
     } else {
-      let slots = script.scripts.map((s) => Seed.findSlots(s));
+      const slots = script.scripts.map((s) => Seed.findSlots(s))
       result.start = slots.reduce(
         (max, act) => (!act.start && !max ? max : Math.max(act.start, max)),
         result.start
-      );
+      )
       result.end = slots.reduce(
         (min, act) =>
           !act.end ? min : !min ? act.end : Math.min(act.end, min),
         result.end
-      );
+      )
     }
-    return result;
+    return result
   }
 
   private static isInteger(value: any) {
-    return Number.isInteger(Number(value));
+    return Number.isInteger(Number(value))
   }
 }
 
 function toBigNum(quantity: number): BigNum {
-  return BigNum.from_str(quantity.toString());
+  return BigNum.from_str(quantity.toString())
 }
 
 export class Bip32KeyPair {
-  privateKey: Bip32PrivateKey;
-  publicKey: Bip32PublicKey;
+  privateKey: Bip32PrivateKey
+  publicKey: Bip32PublicKey
 }
 
 export enum MetadateTypesEnum {
-  Number = "int",
-  String = "string",
-  Bytes = "bytes",
-  List = "list",
-  Map = "map",
+  Number = 'int',
+  String = 'string',
+  Bytes = 'bytes',
+  List = 'list',
+  Map = 'map'
 }
 
-export const CARDANO_PUROPOSE = 1852;
-export const CARDANO_COIN_TYPE = 1815;
-export const CARDANO_EXTERNAL = 0;
-export const CARDANO_CHANGE = 1;
-export const CARDANO_CHIMERIC = 2;
+export const CARDANO_PUROPOSE = 1852
+export const CARDANO_COIN_TYPE = 1815
+export const CARDANO_EXTERNAL = 0
+export const CARDANO_CHANGE = 1
+export const CARDANO_CHIMERIC = 2
