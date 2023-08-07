@@ -1325,7 +1325,9 @@ describe('Cardano wallet API', function () {
 
   describe('wallet', function () {
     it('should create a wallet', async function () {
-      const mnemonic_sentence = Seed.toMnemonicList(Seed.generateRecoveryPhrase())
+      const mnemonic_sentence = Seed.toMnemonicList(
+        Seed.generateRecoveryPhrase()
+      )
       const passphrase = 'tangocrypto'
       const name = 'tangocrypto-wallet'
 
@@ -1508,7 +1510,9 @@ describe('Cardano wallet API', function () {
         'addr1q99q78gt2898zgu2dcswf2yuxj6vujcqece38rycc7wsncl5lx8y8swrhrt93dt5kykkhtd57gpc0hc8820vh6cy8n6su9tsj8' // next unused address;
 
       const wallet = await walletServer.getShelleyWallet(id)
-      const addresses = (await wallet.getAddresses()).map((addr) => addr.address)
+      const addresses = (await wallet.getAddresses()).map(
+        (addr) => addr.address
+      )
       const address = await wallet.getNextAddress()
 
       expect(address.address).equal(addr)
@@ -1528,7 +1532,8 @@ describe('Cardano wallet API', function () {
     })
 
     it('should return stake pools maintenance actions', async function () {
-      const maintenanceActions = await walletServer.stakePoolMaintenanceActions()
+      const maintenanceActions =
+        await walletServer.stakePoolMaintenanceActions()
       expect(maintenanceActions).deep.equal(poolMaintenanceAction)
     })
 
@@ -1727,7 +1732,11 @@ describe('Cardano wallet API', function () {
       const amounts = [1000000]
 
       const wallet = await walletServer.getShelleyWallet(payeer)
-      const transaction = await wallet.sendPayment(passphrase, addresses, amounts)
+      const transaction = await wallet.sendPayment(
+        passphrase,
+        addresses,
+        amounts
+      )
       const output = transaction.outputs.find(
         (o) => o.address == addresses[0].address
       )
@@ -1847,7 +1856,10 @@ describe('Cardano wallet API', function () {
       //build and sign tx
       const rootKey = Seed.deriveRootKey(payeer.mnemonic_sentence)
       const signingKeys = coinSelection.inputs.map((i) => {
-        const privateKey = Seed.deriveKey(rootKey, i.derivation_path).to_raw_key()
+        const privateKey = Seed.deriveKey(
+          rootKey,
+          i.derivation_path
+        ).to_raw_key()
         return privateKey
       })
 

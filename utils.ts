@@ -458,7 +458,7 @@ export class Seed {
         dict: { [key: string]: WalletsAssetsAvailable[] },
         asset: WalletsAssetsAvailable
       ) => {
-        ;(dict[asset.policy_id] = dict[asset.policy_id] || []).push(asset)
+        (dict[asset.policy_id] = dict[asset.policy_id] || []).push(asset)
         return dict
       },
       {}
@@ -491,7 +491,7 @@ export class Seed {
     const mint = Mint.new()
     const groups = tokens.reduce(
       (dict: { [key: string]: TokenWallet[] }, asset: TokenWallet) => {
-        ;(dict[asset.asset.policy_id] = dict[asset.asset.policy_id] || []).push(
+        (dict[asset.asset.policy_id] = dict[asset.asset.policy_id] || []).push(
           asset
         )
         return dict
@@ -884,7 +884,7 @@ export class Seed {
     const multiAsset = MultiAsset.new()
     const groups = tokenAssets.reduce(
       (dict: { [key: string]: AssetWallet[] }, asset: AssetWallet) => {
-        ;(dict[asset.policy_id] = dict[asset.policy_id] || []).push(asset)
+        (dict[asset.policy_id] = dict[asset.policy_id] || []).push(asset)
         return dict
       },
       {}
